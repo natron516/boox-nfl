@@ -291,6 +291,21 @@ function pick(cat, ath, keys, fallbackIdx){
   return ath.stats ? ath.stats[fallbackIdx] : "";
 }
 
+// Convert ESPN EDT game times to PT for display
+function toPT(str){
+  // Match patterns like "9/20 - 4:25 PM EDT" or "9/21 - 8:15 PM EDT"
+  return str.replace(/(\d+):(\d+)\s*(AM|PM)\s*EDT/g, function(_, h, m, ampm){
+    var hour = parseInt(h, 10);
+    if(ampm==="PM" && hour!==12) hour+=12;
+    if(ampm==="AM" && hour===12) hour=0;
+    hour -= 3; // EDT -> PDT
+    if(hour<0) hour+=24;
+    var newAmpm = hour>=12 ? "PM" : "AM";
+    var disp = hour%12 || 12;
+    return disp+":"+m+" "+newAmpm+" PT";
+  });
+}
+
 function updateGame(event, summary){
   var c = comp(event);
   var a = sideTeam(c,"away"), h = sideTeam(c,"home");
@@ -348,7 +363,7 @@ function updateGame(event, summary){
     var short25 = t.indexOf("incomplete")>=0 || t.indexOf("out of bounds")>=0 || t.indexOf("out-of-bounds")>=0;
     resetPlayClock(short25?25:40);
   }
-  if(st.stateType!=="in"){ clockRunning=false; document.getElementById("playclock").textContent = event.status.type.shortDetail||qtxt; }
+  if(st.stateType!=="in"){ clockRunning=false; document.getElementById("playclock").textContent = toPT(event.status.type.shortDetail||qtxt); }
   st.lastPlayId = lp;
 
   document.getElementById("lastplay").textContent = lastPlayText || (summary && summary.drives && summary.drives.current && summary.drives.current.plays && summary.drives.current.plays.length ? summary.drives.current.plays[summary.drives.current.plays.length-1].text : "") || "No plays yet.";
@@ -401,42 +416,41 @@ poll();
 (function(){
 "use strict";
 var WORDS = [
-  ["TOUCHDOWN","Scores 6 points in football"],
-  ["FOOTBALL","The ball you throw and kick"],
-  ["REFEREE","Throws the yellow flag"],
-  ["HALFTIME","Break in the middle of the game"],
-  ["STADIUM","Big arena where teams play"],
-  ["POPCORN","Buttery game day snack"],
-  ["FUMBLE","When a player drops the ball"],
-  ["HELMET","Hard hat players wear"],
-  ["KICKOFF","How the game starts"],
-  ["PENALTY","Breaking the rules"],
-  ["HUDDLE","Team circles up before a play"],
-  ["TAILGATE","Parking lot party before kickoff"],
-  ["ENDZONE","Where touchdowns are scored"],
-  ["INTERCEPTION","Defense catches the other team's pass"],
-  ["FIELDGOAL","Kick through the uprights for 3 points"],
-  ["CHEERLEADER","They lead the crowd in cheers"],
-  ["ELEPHANT","Biggest animal on land"],
-  ["GIRAFFE","Has a very long neck"],
-  ["PENGUIN","Black and white bird that swims"],
-  ["DOLPHIN","Smart ocean animal that jumps"],
-  ["POPCORN","Fluffy snack that pops when heated"],
-  ["PRETZEL","Twisted salty snack"],
-  ["NACHOS","Chips covered in melted cheese"],
-  ["HOTDOG","Meat in a bun at the ballpark"],
   ["PIZZA","Round food with cheese and toppings"],
+  ["HOTDOG","Meat in a bun"],
+  ["NACHOS","Chips with melted cheese"],
+  ["PRETZEL","Twisted salty snack"],
   ["BURGER","Beef patty in a bun"],
-  ["COOKIES","Sweet baked treats"],
-  ["RAINBOW","Colors in the sky after rain"],
-  ["SNOWFLAKE","Each one is unique and falls in winter"],
-  ["BUTTERFLY","Caterpillar grows wings and transforms"],
-  ["SUNSHINE","Bright and warm on a clear day"],
-  ["CAMPFIRE","You roast marshmallows over it"],
-  ["BASEBALL","America's other favorite pastime"],
-  ["BASKETBALL","Bounce it and shoot it through the hoop"],
-  ["SKATEBOARD","Four wheels, one board, ride it"],
-  ["SWIMMING","Moving through water with your arms and legs"]
+  ["POPCORN","Fluffy snack from the microwave"],
+  ["COOKIE","Sweet round baked treat"],
+  ["TACO","Meat and toppings in a shell"],
+  ["WAFFLE","Breakfast food with little squares"],
+  ["PANCAKE","Flat breakfast food you put syrup on"],
+  ["DONUT","Round fried dough with a hole in it"],
+  ["BROWNIE","Chocolate square dessert"],
+  ["MILKSHAKE","Thick cold drink made with ice cream"],
+  ["SANDWICH","Two slices of bread with stuff inside"],
+  ["CUPCAKE","Small cake with frosting on top"],
+  ["LEMONADE","Cold drink made from lemons"],
+  ["CEREAL","Breakfast you pour milk on"],
+  ["BACON","Crispy strips cooked in a pan"],
+  ["SPAGHETTI","Long thin noodles with sauce"],
+  ["SUSHI","Japanese food with rice and fish"],
+  ["BASEBALL","Hit it with a bat"],
+  ["BASKETBALL","Bounce it and shoot through the hoop"],
+  ["SOCCER","Kick the ball into the net"],
+  ["TENNIS","Hit the ball over the net with a racket"],
+  ["HOCKEY","Played on ice with a puck"],
+  ["GOLF","Hit the ball into the hole"],
+  ["BOWLING","Roll the ball to knock down the pins"],
+  ["SWIMMING","Moving through water with your arms"],
+  ["SURFING","Ride ocean waves on a board"],
+  ["SKIING","Slide down a snowy mountain"],
+  ["CYCLING","Racing on a bike"],
+  ["VOLLEYBALL","Hit the ball over the net without dropping it"],
+  ["GYMNASTICS","Flips and balance on a beam"],
+  ["SKATEBOARD","Four wheels, one board"],
+  ["LACROSSE","Catch the ball in a net on a stick"]
 ];
 var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 var overlay = document.getElementById("wgoverlay");
@@ -467,13 +481,25 @@ function renderKeys(keys){
 }
 function render(){
   document.getElementById("wgclue").textContent = "CLUE: "+clue;
-  var missStr = "MISSES: "+misses+"/6";
-  var tokStr = " \u00A0 \uD83E\uDE99 "+tokens+(tokens===1?" token":" tokens");
-  var hintBtn = tokens>0 && !over ? " \u00A0 [HINT: reveal a letter]": "";
-  document.getElementById("wgmisses").innerHTML = missStr + tokStr + (tokens>0&&!over ? ' <button id="hintbtn" style="margin-left:12px;padding:6px 14px;font-size:18px;font-weight:bold;background:#000;color:#fff;border:2px solid #fff;cursor:pointer;">USE HINT (1 \uD83E\uDE99)</button>' : "");
-  if(tokens>0&&!over){
-    var hb=document.getElementById("hintbtn");
-    if(hb) hb.addEventListener("click",useHint);
+  document.getElementById("wgmisses").textContent = "MISSES: "+misses+"/6";
+  // Token bar
+  var tb = document.getElementById("wgtokenbar");
+  if(!tb){
+    tb = document.createElement("div");
+    tb.id = "wgtokenbar";
+    tb.style.cssText = "width:100%;max-width:700px;margin:10px 0;text-align:center;";
+    document.getElementById("wgmisses").insertAdjacentElement("afterend", tb);
+  }
+  var tokenLine = "\uD83E\uDE99 TOKENS: "+tokens;
+  if(tokens>0 && !over){
+    tb.innerHTML = '<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">'+tokenLine+'</div>'
+      +'<button id="hintbtn" style="width:100%;padding:18px;font-size:26px;font-weight:bold;font-family:inherit;background:#fff;color:#000;border:4px solid #fff;cursor:pointer;letter-spacing:1px;">\uD83D\uDCA1 USE HINT — REVEAL A LETTER (costs 1 token)</button>';
+    document.getElementById("hintbtn").onclick = useHint;
+  } else if(tokens===0){
+    tb.innerHTML = '<div style="font-size:22px;font-weight:bold;">'+tokenLine+'</div>'
+      +'<div style="font-size:18px;color:#aaa;margin-top:4px;">Win in 3 or fewer misses to earn a token</div>';
+  } else {
+    tb.innerHTML = '<div style="font-size:28px;font-weight:bold;">'+tokenLine+'</div>';
   }
   var blanks="";
   for(var i=0;i<word.length;i++){
@@ -485,9 +511,9 @@ function render(){
   if(over){
     res.style.display="block";
     var earnedToken = won && misses<=3;
-    var wonMsg = "YOU GOT IT!" + (earnedToken ? "<br>\uD83E\uDE99 +1 TOKEN EARNED!" : "");
-    res.innerHTML = (won ? wonMsg : "OUT OF GUESSES!<br>THE WORD WAS: "+word) + "<br><br>TAP TO PLAY AGAIN";
-    if(won && earnedToken){ tokens++; }
+    if(won && earnedToken) tokens++;
+    var wonMsg = "\u2705 YOU GOT IT!" + (earnedToken ? "<br>\uD83E\uDE99 +1 TOKEN EARNED! ("+misses+" misses)" : "<br>No token — need 3 or fewer misses");
+    res.innerHTML = (won ? wonMsg : "\u274C OUT OF GUESSES<br>THE WORD WAS: "+word) + "<br><br>TAP TO PLAY AGAIN";
   } else res.style.display="none";
 }
 function useHint(){
