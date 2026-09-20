@@ -89,6 +89,7 @@
     <g id="yardlines"></g>
     <line id="losline" x1="600" y1="0" x2="600" y2="240" stroke="#000" stroke-width="4" style="transition:x1 0.8s ease, x2 0.8s ease;"/>
     <line id="fdline" x1="700" y1="0" x2="700" y2="240" stroke="#000" stroke-width="3" stroke-dasharray="10,6" style="transition:x1 0.8s ease, x2 0.8s ease;" opacity="0"/>
+    <g id="playerGroup"></g>
   </svg>
 </div>
 <div id="playclock">:40</div>
@@ -221,6 +222,73 @@ function burstConfetti(durationMs){
   }
   requestAnimationFrame(draw);
 }
+var fieldPlayers = {away:[], home:[]};
+
+function setFieldPlayers(summary, awayId, homeId){
+  var box = summary && summary.boxscore;
+  if(!box || !box.players){ fieldPlayers={away:[],home:[]}; return; }
+  var catMap={passing:"Q",rushing:"B",receiving:"W",defensive:"D",kicking:"K",punting:"P"};
+  var sides={away:[],home:[]};
+  box.players.forEach(function(tp){
+    var side=String(tp.team.id)===String(awayId)?"away":"home";
+    var seen={};
+    (tp.statistics||[]).forEach(function(cat){
+      var pfx=catMap[cat.name]; if(!pfx) return;
+      (cat.athletes||[]).slice(0,3).forEach(function(entry){
+        var ath=entry.athlete||entry;
+        var j=ath.jersey||ath.number||"";
+        if(!j||seen[j]) return; seen[j]=true;
+        sides[side].push({label:pfx+" "+j, cat:cat.name});
+      });
+    });
+  });
+  fieldPlayers.away=sides.away.slice(0,11);
+  fieldPlayers.home=sides.home.slice(0,11);
+}
+
+function renderPlayers(ballYards, possTeam, awayAb){
+  var pg=document.getElementById("playerGroup"); if(!pg) return;
+  if(ballYards==null){ pg.innerHTML=""; return; }
+  var bx=100+ballYards*10, H=240;
+  var poss=possTeam===awayAb?"away":"home", dir=poss==="away"?1:-1;
+  var off=poss==="away"?fieldPlayers.away:fieldPlayers.home;
+  var def=poss==="away"?fieldPlayers.home:fieldPlayers.away;
+  var offSlots=[
+    {cat:"passing",  dx:dir*-50,dy:0.50},
+    {cat:"rushing",  dx:dir*-70,dy:0.35},
+    {cat:"rushing",  dx:dir*-70,dy:0.65},
+    {cat:"receiving",dx:dir*  5,dy:0.08},
+    {cat:"receiving",dx:dir*  5,dy:0.92},
+    {cat:"receiving",dx:dir*  0,dy:0.28},
+    {cat:"receiving",dx:dir*  0,dy:0.72},
+    {cat:"kicking",  dx:dir*-130,dy:0.50},
+    {cat:"punting",  dx:dir*-120,dy:0.50},
+    {cat:"passing",  dx:dir*-50,dy:0.22},
+    {cat:"passing",  dx:dir*-50,dy:0.78},
+  ];
+  var defSlots=[
+    {dx:dir*60,dy:0.20},{dx:dir*60,dy:0.40},{dx:dir*60,dy:0.60},{dx:dir*60,dy:0.80},
+    {dx:dir*85,dy:0.30},{dx:dir*85,dy:0.50},{dx:dir*85,dy:0.70},
+    {dx:dir*110,dy:0.20},{dx:dir*110,dy:0.50},{dx:dir*110,dy:0.80},
+    {dx:dir*130,dy:0.50},
+  ];
+  var html="", used=off.map(function(){return false;});
+  offSlots.forEach(function(slot){
+    var pi=-1;
+    for(var k=0;k<off.length;k++){if(!used[k]&&off[k].cat===slot.cat){pi=k;break;}}
+    if(pi<0){for(var k=0;k<off.length;k++){if(!used[k]){pi=k;break;}}}
+    if(pi<0) return; used[pi]=true;
+    var x=Math.max(110,Math.min(1090,bx+slot.dx)), y=Math.round(slot.dy*H);
+    html+='<text x="'+x+'" y="'+( y+7)+'" text-anchor="middle" font-size="20" font-weight="bold" font-family="Courier New,monospace" fill="#000">'+off[pi].label+'</text>';
+  });
+  defSlots.forEach(function(slot,i){
+    var p=def[i]; if(!p) return;
+    var x=Math.max(110,Math.min(1090,bx+slot.dx)), y=Math.round(slot.dy*H);
+    html+='<text x="'+x+'" y="'+( y+7)+'" text-anchor="middle" font-size="20" font-weight="bold" font-family="Courier New,monospace" fill="#888">'+p.label+'</text>';
+  });
+  pg.innerHTML=html;
+}
+
 var lastBallYards = null;
 
 function renderField(state){
@@ -338,9 +406,9 @@ function renderStats(summary, awayId, homeId, awayAb, homeAb){
       (tp.statistics||[]).forEach(function(cat){
         var ath = (cat.athletes||[])[0];
         if(!ath) return;
-        if(cat.name==="passing") lines.push("QB "+ath.athlete.shortName+" "+pick(cat,ath,["completions/passingAttempts","C/ATT"],0)+" "+pickIdx(cat,ath,"passingYards")+" YD "+pickIdx(cat,ath,"passingTouchdowns")+" TD "+pickIdx(cat,ath,"interceptions")+" INT");
-        if(cat.name==="rushing") lines.push("RB "+ath.athlete.shortName+" "+pickIdx(cat,ath,"rushingAttempts")+" CAR "+pickIdx(cat,ath,"rushingYards")+" YD "+pickIdx(cat,ath,"rushingTouchdowns")+" TD");
-        if(cat.name==="receiving") lines.push("WR "+ath.athlete.shortName+" "+pickIdx(cat,ath,"receptions")+" REC "+pickIdx(cat,ath,"receivingYards")+" YD "+pickIdx(cat,ath,"receivingTouchdowns")+" TD");
+        if(cat.name==="passing") lines.push("QB "+(ath.athlete.shortName||ath.athlete.displayName||("#"+ath.athlete.jersey))+" "+pick(cat,ath,["completions/passingAttempts","C/ATT"],0)+" "+pickIdx(cat,ath,"passingYards")+" YD "+pickIdx(cat,ath,"passingTouchdowns")+" TD "+pickIdx(cat,ath,"interceptions")+" INT");
+        if(cat.name==="rushing") lines.push("RB "+(ath.athlete.shortName||ath.athlete.displayName||("#"+ath.athlete.jersey))+" "+pickIdx(cat,ath,"rushingAttempts")+" CAR "+pickIdx(cat,ath,"rushingYards")+" YD "+pickIdx(cat,ath,"rushingTouchdowns")+" TD");
+        if(cat.name==="receiving") lines.push("WR "+(ath.athlete.shortName||ath.athlete.displayName||("#"+ath.athlete.jersey))+" "+pickIdx(cat,ath,"receptions")+" REC "+pickIdx(cat,ath,"receivingYards")+" YD "+pickIdx(cat,ath,"receivingTouchdowns")+" TD");
       });
       out[side] = lines.map(function(l){ return "<div>"+l+"</div>"; }).join("");
     });
@@ -451,7 +519,11 @@ function updateGame(event, summary){
   if(summary){
     renderScoring(summary);
     renderStats(summary, a.id, h.id, awayAb, homeAb);
+    setFieldPlayers(summary, a.id, h.id);
   }
+  // Render players — possTeam is team with ball
+  var possTeam2 = (sit.possession && String(sit.possession)===String(a.id)) ? awayAb : homeAb;
+  renderPlayers(st.ballYards, possTeam2, awayAb);
   // word game auto-trigger on break in play
   if(window.WG) window.WG.onGameState(st.stateType, st.period, prev);
   prev = st;
