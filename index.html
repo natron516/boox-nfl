@@ -37,7 +37,7 @@
     padding:16px 12px; overflow-y:auto; }
   #ugoverlay.open { display:flex; }
   #ugoverlay h2 { font-size:28px; font-weight:bold; letter-spacing:2px; margin-bottom:16px; border-bottom:3px solid #fff; padding-bottom:8px; }
-  #uglist div { padding:10px 0; font-size:22px; border-bottom:1px dotted #fff; }
+  #uglist { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   #ugreturn { margin:24px auto 8px; min-height:70px; width:100%; max-width:700px;
     font-family:inherit; font-size:22px; font-weight:bold; background:#000; color:#fff;
     border:3px solid #fff; letter-spacing:2px; cursor:pointer; }
@@ -100,10 +100,10 @@
 <h3>Scoring Summary</h3>
 <div id="scoring"></div>
 <div id="errnote"></div>
-<button id="ugbtn">UPCOMING GAMES</button>
+<button id="ugbtn">ALL GAMES</button>
 <button id="wgbtn">WORD GAME</button>
 <div id="ugoverlay">
-  <h2>UPCOMING GAMES</h2>
+  <h2>ALL GAMES THIS WEEK</h2>
   <div id="uglist"></div>
   <button id="ugreturn">TAP TO RETURN TO GAME</button>
 </div>
