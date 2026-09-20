@@ -352,6 +352,24 @@ function sideTeam(c, ha){ return c.competitors.filter(function(x){ return x.home
 document.getElementById("ugbtn").addEventListener("click", function(){ document.getElementById("ugoverlay").classList.add("open"); });
 document.getElementById("ugreturn").addEventListener("click", function(){ document.getElementById("ugoverlay").classList.remove("open"); });
 
+function switchGame(eid){
+  userPicked=true; eventId=eid; prev=null; fieldPlayers={away:[],home:[]};
+  document.getElementById("ugoverlay").classList.remove("open");
+  if(pollTimer) clearTimeout(pollTimer);
+  // Fetch scoreboard + summary directly for the chosen game
+  fetch(SB_URL).then(function(r){return r.json();}).then(function(sb){
+    var events=sb.events||[];
+    renderAllGames(events);
+    var ev=events.filter(function(e){return e.id===eid;})[0];
+    if(!ev){setErr("game not found");return;}
+    eventId=ev.id;
+    fetch(sumUrl(eventId)).then(function(r){return r.json();}).then(function(summary){
+      updateGame(ev,summary); setErr("");
+      schedulePoll(ev.status.type.state==="in"?5000:60000);
+    }).catch(function(){updateGame(ev,null);schedulePoll(60000);});
+  }).catch(function(){setErr("fetch error");});
+}
+
 function renderAllGames(events){
   var html = events.map(function(e){
     var cx = comp(e);
@@ -366,18 +384,12 @@ function renderAllGames(events){
       : state==="post"
         ? "<span style=\"color:#666;margin-right:12px;\">FINAL</span>"
         : "<span style=\"color:#aaa;margin-right:12px;\">"+st+"</span>";
-    var rowBg = isCurrent ? "background:#222;" : isLive ? "" : "opacity:0.6;";
+    var rowBg = isCurrent ? "background:#222;" : "";
     var border = isLive||isCurrent ? "border-left:5px solid #fff;" : "border-left:5px solid #444;";
-    return "<div style=\"padding:16px 12px;font-size:24px;border-bottom:1px solid #333;"+rowBg+border+"cursor:pointer;\" data-eid='"+e.id+"'>"+badge+score+"</div>";
+    var dim = (!isLive&&!isCurrent) ? "opacity:0.6;" : "";
+    return "<div onclick=\"switchGame('"+e.id+"')\" style=\"padding:16px 12px;font-size:24px;border-bottom:1px solid #333;cursor:pointer;"+rowBg+border+dim+"\">"+badge+score+"</div>";
   }).join("");
   document.getElementById("uglist").innerHTML = html;
-  document.getElementById("uglist").querySelectorAll("div[data-eid]").forEach(function(div){
-    div.addEventListener("click", function(){
-      var eid = div.getAttribute("data-eid");
-      document.getElementById("ugoverlay").classList.remove("open");
-      if(eid){ userPicked=true; eventId=eid; prev=null; fieldPlayers={away:[],home:[]}; if(pollTimer) clearTimeout(pollTimer); poll(); }
-    });
-  });
 }
 
 function renderQTable(c, awayAb, homeAb){
@@ -563,7 +575,8 @@ function poll(){
     if(userPicked && eventId){
       ev = events.filter(function(e){ return e.id===eventId; })[0];
     }
-    if(!ev){ ev = pickEvent(events); }
+    if(!ev && !userPicked){ ev = pickEvent(events); }
+    if(!ev){ ev = pickEvent(events); userPicked=false; }
     if(!ev){ setErr("no games found"); schedulePoll(300000); return; }
     eventId = ev.id;
     var state = ev.status.type.state;
