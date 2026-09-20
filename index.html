@@ -401,58 +401,62 @@ poll();
 (function(){
 "use strict";
 var WORDS = [
-  ["TOUCHDOWN","Score 6 points in football"],
-  ["QUARTERBACK","The signal caller"],
-  ["FOOTBALL","The ball itself"],
-  ["REFEREE","Calls the penalties"],
-  ["HALFTIME","Middle of the game"],
-  ["STADIUM","Where teams play"],
-  ["POPCORN","Game day snack"],
-  ["FUMBLE","Oops, dropped the ball"],
-  ["HELMET","Protects a player's head"],
-  ["KICKOFF","How each half starts"],
-  ["PENALTY","Yellow flag on the play"],
-  ["HUDDLE","Team circle before a play"],
-  ["TAILGATE","Parking lot party before the game"],
-  ["SEAHAWKS","Seattle's NFL team"],
-  ["CHICAGO","Windy City NFL team's home"],
-  ["ARIZONA","Desert state with an NFL team"],
-  ["GREENBAY","Cheesehead football town"],
-  ["DENVER","Mile High City"],
-  ["ELEPHANT","Largest land animal"],
-  ["GIRAFFE","Tallest animal on Earth"],
-  ["PENGUIN","Tuxedo bird that can't fly"],
-  ["DOLPHIN","Smart ocean mammal (and a team!)"],
-  ["CHEETAH","Fastest land animal"],
-  ["OCTOPUS","Eight arms in the ocean"],
-  ["VOLCANO","Mountain that erupts"],
-  ["GLACIER","Giant slow river of ice"],
-  ["RAINIER","Big mountain near Seattle"],
-  ["CANYON","Deep valley carved by a river"],
+  ["TOUCHDOWN","Scores 6 points in football"],
+  ["FOOTBALL","The ball you throw and kick"],
+  ["REFEREE","Throws the yellow flag"],
+  ["HALFTIME","Break in the middle of the game"],
+  ["STADIUM","Big arena where teams play"],
+  ["POPCORN","Buttery game day snack"],
+  ["FUMBLE","When a player drops the ball"],
+  ["HELMET","Hard hat players wear"],
+  ["KICKOFF","How the game starts"],
+  ["PENALTY","Breaking the rules"],
+  ["HUDDLE","Team circles up before a play"],
+  ["TAILGATE","Parking lot party before kickoff"],
+  ["ENDZONE","Where touchdowns are scored"],
+  ["INTERCEPTION","Defense catches the other team's pass"],
+  ["FIELDGOAL","Kick through the uprights for 3 points"],
+  ["CHEERLEADER","They lead the crowd in cheers"],
+  ["ELEPHANT","Biggest animal on land"],
+  ["GIRAFFE","Has a very long neck"],
+  ["PENGUIN","Black and white bird that swims"],
+  ["DOLPHIN","Smart ocean animal that jumps"],
+  ["POPCORN","Fluffy snack that pops when heated"],
   ["PRETZEL","Twisted salty snack"],
-  ["NACHOS","Chips with cheese on top"],
-  ["HOTDOG","Classic stadium food in a bun"],
-  ["PANCAKE","Flat breakfast with syrup"],
-  ["BURRITO","Everything wrapped in a tortilla"],
-  ["THUNDER","The sound after lightning"]
+  ["NACHOS","Chips covered in melted cheese"],
+  ["HOTDOG","Meat in a bun at the ballpark"],
+  ["PIZZA","Round food with cheese and toppings"],
+  ["BURGER","Beef patty in a bun"],
+  ["COOKIES","Sweet baked treats"],
+  ["RAINBOW","Colors in the sky after rain"],
+  ["SNOWFLAKE","Each one is unique and falls in winter"],
+  ["BUTTERFLY","Caterpillar grows wings and transforms"],
+  ["SUNSHINE","Bright and warm on a clear day"],
+  ["CAMPFIRE","You roast marshmallows over it"],
+  ["BASEBALL","America's other favorite pastime"],
+  ["BASKETBALL","Bounce it and shoot it through the hoop"],
+  ["SKATEBOARD","Four wheels, one board, ride it"],
+  ["SWIMMING","Moving through water with your arms and legs"]
 ];
 var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 var overlay = document.getElementById("wgoverlay");
 var word="", clue="", guessed={}, misses=0, over=false, won=false;
 var dismissedThisBreak=false, autoTimer=null, lastState=null;
+var tokens=0;
+var currentKeys=[];
 
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
 
 function newGame(){
   var w = WORDS[Math.floor(Math.random()*WORDS.length)];
   word=w[0]; clue=w[1]; guessed={}; misses=0; over=false; won=false;
-  // build key set: unique correct letters + wrong letters to reach at least 10 (or uniques+6)
   var uniq=[]; for(var i=0;i<word.length;i++) if(uniq.indexOf(word[i])<0) uniq.push(word[i]);
   var keys=uniq.slice();
   var pool=shuffle(ALPHA.split("").filter(function(c){ return uniq.indexOf(c)<0; }));
   var target=Math.max(10, uniq.length+6);
   while(keys.length<target && pool.length) keys.push(pool.pop());
   keys=shuffle(keys);
+  currentKeys=keys.slice();
   renderKeys(keys);
   render();
 }
@@ -463,7 +467,14 @@ function renderKeys(keys){
 }
 function render(){
   document.getElementById("wgclue").textContent = "CLUE: "+clue;
-  document.getElementById("wgmisses").textContent = "MISSES: "+misses+"/6";
+  var missStr = "MISSES: "+misses+"/6";
+  var tokStr = " \u00A0 \uD83E\uDE99 "+tokens+(tokens===1?" token":" tokens");
+  var hintBtn = tokens>0 && !over ? " \u00A0 [HINT: reveal a letter]": "";
+  document.getElementById("wgmisses").innerHTML = missStr + tokStr + (tokens>0&&!over ? ' <button id="hintbtn" style="margin-left:12px;padding:6px 14px;font-size:18px;font-weight:bold;background:#000;color:#fff;border:2px solid #fff;cursor:pointer;">USE HINT (1 \uD83E\uDE99)</button>' : "");
+  if(tokens>0&&!over){
+    var hb=document.getElementById("hintbtn");
+    if(hb) hb.addEventListener("click",useHint);
+  }
   var blanks="";
   for(var i=0;i<word.length;i++){
     var c=word[i];
@@ -473,8 +484,23 @@ function render(){
   var res = document.getElementById("wgresult");
   if(over){
     res.style.display="block";
-    res.innerHTML = (won ? "YOU GOT IT!" : "OUT OF GUESSES!<br>THE WORD WAS: "+word) + "<br><br>TAP TO PLAY AGAIN";
+    var earnedToken = won && misses<=3;
+    var wonMsg = "YOU GOT IT!" + (earnedToken ? "<br>\uD83E\uDE99 +1 TOKEN EARNED!" : "");
+    res.innerHTML = (won ? wonMsg : "OUT OF GUESSES!<br>THE WORD WAS: "+word) + "<br><br>TAP TO PLAY AGAIN";
+    if(won && earnedToken){ tokens++; }
   } else res.style.display="none";
+}
+function useHint(){
+  if(tokens<=0||over) return;
+  var hidden=[];
+  for(var i=0;i<word.length;i++) if(!guessed[word[i]]) { if(hidden.indexOf(word[i])<0) hidden.push(word[i]); }
+  if(!hidden.length) return;
+  var pick=hidden[Math.floor(Math.random()*hidden.length)];
+  guessed[pick]=true; tokens--;
+  // mark the key button as hit
+  document.querySelectorAll(".wgkey").forEach(function(b){ if(b.getAttribute("data-l")===pick) b.classList.add("hit"); });
+  if(solved()){ over=true; won=true; }
+  render();
 }
 function solved(){
   for(var i=0;i<word.length;i++) if(!guessed[word[i]]) return false;
