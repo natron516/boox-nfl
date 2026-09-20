@@ -160,9 +160,10 @@ function yardLineAbs(situation, homeAbbr, awayAbbr){
 
 // Confetti burst for red-zone threat
 var confettiActive = false;
-function burstConfetti(){
+function burstConfetti(durationMs){
   if(confettiActive) return;
   confettiActive = true;
+  var maxTicks = Math.round((durationMs||1000) / (1000/60));
   var canvas = document.getElementById("confettiCanvas");
   if(!canvas){
     canvas = document.createElement("canvas");
@@ -186,7 +187,7 @@ function burstConfetti(){
       tiltSpeed: Math.random()*0.1+0.05
     });
   }
-  var angle = 0, tick = 0, maxTicks = 160;
+  var angle = 0, tick = 0;
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     angle += 0.01; tick++;
@@ -408,7 +409,11 @@ function updateGame(event, summary){
   // Confetti when ball is inside the 10 heading toward endzone
   if(st.stateType==="in" && st.ballYards!=null){
     var inRedZone = st.ballYards<=10 || st.ballYards>=90;
-    if(inRedZone && lastBallYards!=null && lastBallYards!==st.ballYards) burstConfetti();
+    if(inRedZone && lastBallYards!=null && lastBallYards!==st.ballYards){
+      var possTeam = (sit.possession && String(sit.possession)===String(a.id)) ? awayAb : homeAb;
+      var dur = possTeam==="SEA" ? 3000 : 1000;
+      burstConfetti(dur);
+    }
   }
   lastBallYards = st.ballYards;
 
