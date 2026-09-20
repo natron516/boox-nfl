@@ -80,6 +80,7 @@
 <div id="fieldwrap">
   <div id="ballname"></div>
   <div id="ballmarker" style="left:50%;"></div>
+  <div id="playerOverlay" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;font-family:'Courier New',monospace;font-size:13px;font-weight:bold;"></div>
   <svg id="field" width="100%" height="240" viewBox="0 0 1200 240" preserveAspectRatio="none">
     <rect x="0" y="0" width="1200" height="240" fill="#fff" stroke="#000" stroke-width="3"/>
     <rect x="0" y="0" width="100" height="240" fill="#000"/>
@@ -89,7 +90,6 @@
     <g id="yardlines"></g>
     <line id="losline" x1="600" y1="0" x2="600" y2="240" stroke="#000" stroke-width="4" style="transition:x1 0.8s ease, x2 0.8s ease;"/>
     <line id="fdline" x1="700" y1="0" x2="700" y2="240" stroke="#000" stroke-width="3" stroke-dasharray="10,6" style="transition:x1 0.8s ease, x2 0.8s ease;" opacity="0"/>
-    <g id="playerGroup"></g>
   </svg>
 </div>
 <div id="playclock">:40</div>
@@ -247,9 +247,11 @@ function setFieldPlayers(summary, awayId, homeId){
 }
 
 function renderPlayers(ballYards, possTeam, awayAb){
-  var pg=document.getElementById("playerGroup"); if(!pg) return;
-  if(ballYards==null){ pg.innerHTML=""; return; }
-  var bx=100+ballYards*10, H=240;
+  var ov=document.getElementById("playerOverlay"); if(!ov) return;
+  if(ballYards==null||(!fieldPlayers.away.length&&!fieldPlayers.home.length)){ov.innerHTML="";return;}
+  // field playing area is 8.33%..91.67% of overlay width (endzones 8.33% each)
+  var fieldW=1200, fieldH=240;
+  var bx=100+ballYards*10; // SVG x units
   var poss=possTeam===awayAb?"away":"home", dir=poss==="away"?1:-1;
   var off=poss==="away"?fieldPlayers.away:fieldPlayers.home;
   var def=poss==="away"?fieldPlayers.home:fieldPlayers.away;
@@ -273,20 +275,26 @@ function renderPlayers(ballYards, possTeam, awayAb){
     {dx:dir*130,dy:0.50},
   ];
   var html="", used=off.map(function(){return false;});
+  function dot(svgX,svgY,label,dark){
+    var lp=(Math.max(105,Math.min(1095,svgX))/fieldW*100).toFixed(2)+"%";
+    var tp=(Math.max(2,Math.min(96,svgY/fieldH*100))).toFixed(2)+"%";
+    var bg=dark?"#fff":"#000", fg=dark?"#000":"#fff";
+    html+="<span style=\"position:absolute;left:"+lp+";top:"+tp+";transform:translate(-50%,-50%);"
+      +"background:"+bg+";color:"+fg+";padding:1px 4px;font-size:12px;font-weight:bold;"
+      +"font-family:Courier New,monospace;white-space:nowrap;line-height:1.2;\">"+label+"</span>";
+  }
   offSlots.forEach(function(slot){
     var pi=-1;
     for(var k=0;k<off.length;k++){if(!used[k]&&off[k].cat===slot.cat){pi=k;break;}}
     if(pi<0){for(var k=0;k<off.length;k++){if(!used[k]){pi=k;break;}}}
     if(pi<0) return; used[pi]=true;
-    var x=Math.max(110,Math.min(1090,bx+slot.dx)), y=Math.round(slot.dy*H);
-    html+='<text x="'+x+'" y="'+( y+7)+'" text-anchor="middle" font-size="20" font-weight="bold" font-family="Courier New,monospace" fill="#000">'+off[pi].label+'</text>';
+    dot(bx+slot.dx, slot.dy*fieldH, off[pi].label, false);
   });
   defSlots.forEach(function(slot,i){
     var p=def[i]; if(!p) return;
-    var x=Math.max(110,Math.min(1090,bx+slot.dx)), y=Math.round(slot.dy*H);
-    html+='<text x="'+x+'" y="'+( y+7)+'" text-anchor="middle" font-size="20" font-weight="bold" font-family="Courier New,monospace" fill="#888">'+p.label+'</text>';
+    dot(bx+slot.dx, slot.dy*fieldH, p.label, true);
   });
-  pg.innerHTML=html;
+  ov.innerHTML=html;
 }
 
 var lastBallYards = null;
