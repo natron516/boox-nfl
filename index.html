@@ -29,7 +29,6 @@
   table.qt th, table.qt td { border:1px solid #000; padding:3px 8px; text-align:center; }
   table.qt th { background:#000; color:#fff; }
   #scoring div { padding:3px 0; font-size:17px; border-bottom:1px dotted #000; }
-  #allgames div { padding:4px 0; font-size:18px; border-bottom:1px dotted #000; }
   #ugbtn { position:fixed; top:8px; left:8px; z-index:900; background:#000; color:#fff;
     font-family:inherit; font-weight:bold; font-size:16px; padding:10px 14px; border:2px solid #000;
     letter-spacing:1px; cursor:pointer; }
@@ -277,7 +276,6 @@ document.getElementById("ugbtn").addEventListener("click", function(){ document.
 document.getElementById("ugreturn").addEventListener("click", function(){ document.getElementById("ugoverlay").classList.remove("open"); });
 
 function renderAllGames(events){
-  var el = document.getElementById("allgames");
   var html = events.map(function(e){
     var c = comp(e);
     var a = sideTeam(c,"away"), h = sideTeam(c,"home");
@@ -285,16 +283,12 @@ function renderAllGames(events){
     var active = e.id===eventId ? " style='background:#fff;color:#000;font-weight:bold;padding-left:6px;'" : " style='cursor:pointer;'";
     return "<div"+active+" data-eid='"+e.id+"'>"+a.team.abbreviation+" "+(a.score||"0")+" @ "+h.team.abbreviation+" "+(h.score||"0")+" &nbsp;&nbsp;"+st+"</div>";
   }).join("");
-  el.innerHTML = html;
   document.getElementById("uglist").innerHTML = html;
-  // tap to switch game (both inline list and popup)
-  [el, document.getElementById("uglist")].forEach(function(container){
-    container.querySelectorAll("div[data-eid]").forEach(function(div){
-      div.addEventListener("click", function(){
-        var eid = div.getAttribute("data-eid");
-        if(eid && eid!==eventId){ eventId=eid; prev=null; if(pollTimer) clearTimeout(pollTimer); poll(); }
-        document.getElementById("ugoverlay").classList.remove("open");
-      });
+  document.getElementById("uglist").querySelectorAll("div[data-eid]").forEach(function(div){
+    div.addEventListener("click", function(){
+      var eid = div.getAttribute("data-eid");
+      if(eid && eid!==eventId){ eventId=eid; prev=null; if(pollTimer) clearTimeout(pollTimer); poll(); }
+      document.getElementById("ugoverlay").classList.remove("open");
     });
   });
 }
