@@ -393,7 +393,7 @@ function renderScoring(summary){
 function statLine(athletes, labels){
   if(!athletes || !athletes.length) return null;
   var a = athletes[0];
-  return a.athlete.shortName+": "+a.stats.join(" ");
+  return (a.athlete.lastName||a.athlete.displayName||"")+": "+a.stats.join(" ");
 }
 
 function renderStats(summary, awayId, homeId, awayAb, homeAb){
@@ -406,9 +406,9 @@ function renderStats(summary, awayId, homeId, awayAb, homeAb){
       (tp.statistics||[]).forEach(function(cat){
         var ath = (cat.athletes||[])[0];
         if(!ath) return;
-        if(cat.name==="passing") lines.push("QB "+(ath.athlete.shortName||ath.athlete.displayName||("#"+ath.athlete.jersey))+" "+pick(cat,ath,["completions/passingAttempts","C/ATT"],0)+" "+pickIdx(cat,ath,"passingYards")+" YD "+pickIdx(cat,ath,"passingTouchdowns")+" TD "+pickIdx(cat,ath,"interceptions")+" INT");
-        if(cat.name==="rushing") lines.push("RB "+(ath.athlete.shortName||ath.athlete.displayName||("#"+ath.athlete.jersey))+" "+pickIdx(cat,ath,"rushingAttempts")+" CAR "+pickIdx(cat,ath,"rushingYards")+" YD "+pickIdx(cat,ath,"rushingTouchdowns")+" TD");
-        if(cat.name==="receiving") lines.push("WR "+(ath.athlete.shortName||ath.athlete.displayName||("#"+ath.athlete.jersey))+" "+pickIdx(cat,ath,"receptions")+" REC "+pickIdx(cat,ath,"receivingYards")+" YD "+pickIdx(cat,ath,"receivingTouchdowns")+" TD");
+        if(cat.name==="passing") lines.push("QB "+ath.athlete.lastName+" #"+ath.athlete.jersey+" "+pick(cat,ath,["completions/passingAttempts","C/ATT"],0)+" "+pickIdx(cat,ath,"passingYards")+" YD "+pickIdx(cat,ath,"passingTouchdowns")+" TD "+pickIdx(cat,ath,"interceptions")+" INT");
+        if(cat.name==="rushing") lines.push("RB "+ath.athlete.lastName+" #"+ath.athlete.jersey+" "+pickIdx(cat,ath,"rushingAttempts")+" CAR "+pickIdx(cat,ath,"rushingYards")+" YD "+pickIdx(cat,ath,"rushingTouchdowns")+" TD");
+        if(cat.name==="receiving") lines.push("WR "+ath.athlete.lastName+" #"+ath.athlete.jersey+" "+pickIdx(cat,ath,"receptions")+" REC "+pickIdx(cat,ath,"receivingYards")+" YD "+pickIdx(cat,ath,"receivingTouchdowns")+" TD");
       });
       out[side] = lines.map(function(l){ return "<div>"+l+"</div>"; }).join("");
     });
@@ -496,7 +496,7 @@ function updateGame(event, summary){
   if(st.stateType==="in" && st.ballYards!=null){
     var inRedZone = st.ballYards<=10 || st.ballYards>=90;
     if(inRedZone && lastBallYards!=null && lastBallYards!==st.ballYards){
-      var possTeam = (sit.possession && String(sit.possession)===String(a.id)) ? awayAb : homeAb;
+      var possTeam = (sit.possession && String(sit.possession)===String(a.team.id)) ? awayAb : homeAb;
       var dur = possTeam==="SEA" ? 3000 : 1000;
       burstConfetti(dur);
     }
@@ -519,10 +519,10 @@ function updateGame(event, summary){
   if(summary){
     renderScoring(summary);
     renderStats(summary, a.id, h.id, awayAb, homeAb);
-    setFieldPlayers(summary, a.id, h.id);
+    setFieldPlayers(summary, a.team.id, h.team.id);
   }
   // Render players — possTeam is team with ball
-  var possTeam2 = (sit.possession && String(sit.possession)===String(a.id)) ? awayAb : homeAb;
+  var possTeam2 = (sit.possession && String(sit.possession)===String(a.team.id)) ? awayAb : homeAb;
   renderPlayers(st.ballYards, possTeam2, awayAb);
   // word game auto-trigger on break in play
   if(window.WG) window.WG.onGameState(st.stateType, st.period, prev);
