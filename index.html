@@ -353,18 +353,28 @@ document.getElementById("ugreturn").addEventListener("click", function(){ docume
 
 function renderAllGames(events){
   var html = events.map(function(e){
-    var c = comp(e);
-    var a = sideTeam(c,"away"), h = sideTeam(c,"home");
+    var cx = comp(e);
+    var a = sideTeam(cx,"away"), h = sideTeam(cx,"home");
+    var state = e.status.type.state;
     var st = toPT(e.status.type.shortDetail||e.status.type.description||"");
-    var active = e.id===eventId ? " style='background:#fff;color:#000;font-weight:bold;padding-left:6px;'" : " style='cursor:pointer;'";
-    return "<div"+active+" data-eid='"+e.id+"'>"+a.team.abbreviation+" "+(a.score||"0")+" @ "+h.team.abbreviation+" "+(h.score||"0")+" &nbsp;&nbsp;"+st+"</div>";
+    var isLive = state==="in";
+    var isCurrent = e.id===eventId;
+    var score = a.team.abbreviation+" "+(a.score||"0")+" — "+h.team.abbreviation+" "+(h.score||"0");
+    var badge = isLive
+      ? "<span style=\"background:#fff;color:#000;font-weight:bold;padding:3px 10px;margin-right:12px;\">LIVE</span>"
+      : state==="post"
+        ? "<span style=\"color:#666;margin-right:12px;\">FINAL</span>"
+        : "<span style=\"color:#aaa;margin-right:12px;\">"+st+"</span>";
+    var rowBg = isCurrent ? "background:#222;" : isLive ? "" : "opacity:0.6;";
+    var border = isLive||isCurrent ? "border-left:5px solid #fff;" : "border-left:5px solid #444;";
+    return "<div style=\"padding:16px 12px;font-size:24px;border-bottom:1px solid #333;"+rowBg+border+"cursor:pointer;\" data-eid='"+e.id+"'>"+badge+score+"</div>";
   }).join("");
   document.getElementById("uglist").innerHTML = html;
   document.getElementById("uglist").querySelectorAll("div[data-eid]").forEach(function(div){
     div.addEventListener("click", function(){
       var eid = div.getAttribute("data-eid");
-      if(eid && eid!==eventId){ eventId=eid; prev=null; if(pollTimer) clearTimeout(pollTimer); poll(); }
       document.getElementById("ugoverlay").classList.remove("open");
+      if(eid && eid!==eventId){ eventId=eid; prev=null; fieldPlayers={away:[],home:[]}; if(pollTimer) clearTimeout(pollTimer); poll(); }
     });
   });
 }
