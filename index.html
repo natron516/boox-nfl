@@ -94,6 +94,7 @@
 <div id="wgoverlay">
   <div id="wgclue"></div>
   <div id="wgmisses"></div>
+  <div id="wgtokenbar" style="width:100%;max-width:700px;margin:10px 0;text-align:center;"></div>
   <div id="wgblanks"></div>
   <div id="wgletters"></div>
   <div id="wgresult"></div>
@@ -484,12 +485,6 @@ function render(){
   document.getElementById("wgmisses").textContent = "MISSES: "+misses+"/6";
   // Token bar
   var tb = document.getElementById("wgtokenbar");
-  if(!tb){
-    tb = document.createElement("div");
-    tb.id = "wgtokenbar";
-    tb.style.cssText = "width:100%;max-width:700px;margin:10px 0;text-align:center;";
-    document.getElementById("wgmisses").insertAdjacentElement("afterend", tb);
-  }
   var tokenLine = "\uD83E\uDE99 TOKENS: "+tokens;
   if(tokens>0 && !over){
     tb.innerHTML = '<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">'+tokenLine+'</div>'
