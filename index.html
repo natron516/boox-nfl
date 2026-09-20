@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NFL Gameday</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { background:#fff; color:#000; font-family:"Courier New",Courier,monospace; }
+  body { padding:10px 14px; font-size:20px; }
+  .hdr { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #000; padding-bottom:6px; }
+  .hdr .teams { font-size:22px; font-weight:bold; }
+  .hdr .bigscore { font-size:46px; font-weight:bold; letter-spacing:2px; }
+  .hdr .qtr { font-size:24px; font-weight:bold; text-align:right; }
+  .flash { animation:invflash 0.5s ease; }
+  @keyframes invflash { 0%,100%{background:#fff;color:#000;} 40%{background:#000;color:#fff;} }
+  #ddbar { background:#000; color:#fff; font-size:26px; font-weight:bold; text-align:center; padding:8px 0; margin:8px 0; letter-spacing:2px; }
+  #fieldwrap { position:relative; margin:8px 0; border-bottom:2px solid #000; padding-bottom:8px; }
+  #ballmarker { position:absolute; top:8px; width:14px; height:14px; background:#000; border-radius:50%; transition:left 0.8s ease; transform:translateX(-50%); }
+  #ballname { position:absolute; top:-14px; font-size:15px; font-weight:bold; transition:left 0.8s ease; transform:translateX(-50%); white-space:nowrap; }
+  #playclock { text-align:center; font-size:38px; font-weight:bold; padding:6px 0; border-bottom:2px solid #000; }
+  #playclock.low { font-weight:900; text-decoration:underline; }
+  #lastplay { padding:8px 0; font-size:20px; border-bottom:2px solid #000; min-height:32px; }
+  h3 { font-size:18px; text-transform:uppercase; border-bottom:1px solid #000; margin:10px 0 4px; }
+  #stats { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; font-size:17px; }
+  #stats .col b { display:block; border-bottom:1px dotted #000; margin-bottom:2px; font-size:19px; }
+  #stats .col div { padding:2px 0; }
+  table.qt { width:100%; border-collapse:collapse; margin:8px 0; font-size:19px; }
+  table.qt th, table.qt td { border:1px solid #000; padding:3px 8px; text-align:center; }
+  table.qt th { background:#000; color:#fff; }
+  #scoring div { padding:3px 0; font-size:17px; border-bottom:1px dotted #000; }
+  #allgames div { padding:4px 0; font-size:18px; border-bottom:1px dotted #000; }
+  #errnote { font-size:16px; font-style:italic; text-align:right; min-height:20px; }
+  /* ---- Word game overlay ---- */
+  #wgbtn { position:fixed; top:8px; right:8px; z-index:900; background:#000; color:#fff;
+    font-family:inherit; font-weight:bold; font-size:16px; padding:10px 14px; border:2px solid #000;
+    letter-spacing:1px; cursor:pointer; }
+  #wgoverlay { position:fixed; inset:0; z-index:1000; background:#000; color:#fff;
+    font-family:"Courier New",Courier,monospace; display:none; flex-direction:column;
+    align-items:center; justify-content:flex-start; padding:16px 12px; overflow-y:auto; }
+  #wgoverlay.open { display:flex; }
+  #wgclue { font-size:24px; font-weight:bold; text-align:center; margin:12px 0 4px;
+    letter-spacing:1px; line-height:1.3; max-width:900px; }
+  #wgmisses { font-size:22px; font-weight:bold; margin:6px 0 10px; letter-spacing:2px; }
+  #wgblanks { font-size:44px; font-weight:bold; letter-spacing:6px; text-align:center;
+    margin:14px 0 20px; line-height:1.4; word-break:break-all; max-width:96vw; }
+  #wgletters { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; width:100%;
+    max-width:700px; margin:0 auto; }
+  .wgkey { min-height:84px; font-family:inherit; font-size:40px; font-weight:bold;
+    background:#000; color:#fff; border:3px solid #fff; cursor:pointer; position:relative; }
+  .wgkey.hit { background:#fff; color:#000; }
+  .wgkey.miss { color:#666; border-color:#666; }
+  .wgkey.miss::after { content:"✕"; position:absolute; inset:0; display:flex;
+    align-items:center; justify-content:center; font-size:52px; color:#fff; }
+  #wgresult { font-size:30px; font-weight:bold; text-align:center; margin:18px 0;
+    letter-spacing:2px; line-height:1.4; display:none; }
+  #wgreturn { margin:22px auto 8px; min-height:80px; width:100%; max-width:700px;
+    font-family:inherit; font-size:24px; font-weight:bold; background:#000; color:#fff;
+    border:3px solid #fff; letter-spacing:2px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="teams" id="hdrteams">--- @ ---</div>
+  <div class="bigscore" id="hdrscore">0 - 0</div>
+  <div class="qtr" id="hdrqtr">--<br><span id="hdrclock" style="font-size:20px;">--:--</span></div>
+</div>
+<div id="ddbar">— — —</div>
+<div id="fieldwrap">
+  <div id="ballname"></div>
+  <div id="ballmarker" style="left:50%;"></div>
+  <svg id="field" width="100%" height="160" viewBox="0 0 1200 160" preserveAspectRatio="none">
+    <rect x="0" y="0" width="1200" height="160" fill="#fff" stroke="#000" stroke-width="3"/>
+    <rect x="0" y="0" width="100" height="160" fill="#000"/>
+    <rect x="1100" y="0" width="100" height="160" fill="#000"/>
+    <text id="ezAway" x="50" y="90" fill="#fff" font-size="30" font-weight="bold" text-anchor="middle" transform="rotate(-90 50 90)"></text>
+    <text id="ezHome" x="1150" y="90" fill="#fff" font-size="30" font-weight="bold" text-anchor="middle" transform="rotate(90 1150 90)"></text>
+    <g id="yardlines"></g>
+    <line id="losline" x1="600" y1="0" x2="600" y2="160" stroke="#000" stroke-width="4" style="transition:x1 0.8s ease, x2 0.8s ease;"/>
+    <line id="fdline" x1="700" y1="0" x2="700" y2="160" stroke="#000" stroke-width="3" stroke-dasharray="10,6" style="transition:x1 0.8s ease, x2 0.8s ease;" opacity="0"/>
+  </svg>
+</div>
+<div id="playclock">:40</div>
+<div id="lastplay">Waiting for game data...</div>
+<h3>Key Player Stats</h3>
+<div id="stats"><div class="col" id="statsAway"></div><div class="col" id="statsHome"></div></div>
+<table class="qt" id="qtable"></table>
+<h3>Scoring Summary</h3>
+<div id="scoring"></div>
+<h3>All Games This Week</h3>
+<div id="allgames"></div>
+<div id="errnote"></div>
+<button id="wgbtn">WORD GAME</button>
+<div id="wgoverlay">
+  <div id="wgclue"></div>
+  <div id="wgmisses"></div>
+  <div id="wgblanks"></div>
+  <div id="wgletters"></div>
+  <div id="wgresult"></div>
+  <button id="wgreturn">TAP TO RETURN TO GAME</button>
+</div>
+<script>
+(function(){
+"use strict";
+var FAV = "SEA";
+var SB_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
+function sumUrl(id){ return "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event="+id; }
+
+var prev = null;
+var eventId = null;
+var pollTimer = null;
+var playClock = 40;
+var clockRunning = false;
+var currentInterval = 60000;
+
+function setErr(m){ document.getElementById("errnote").textContent = m||""; }
+function pad2(n){ return (n<10?"0":"")+n; }
+function flashEl(el){ el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+
+// build yard lines once
+(function(){
+  var g = document.getElementById("yardlines");
+  var labels = [10,20,30,40,50,40,30,20,10];
+  var html = "";
+  for(var i=1;i<=9;i++){
+    var x = 100 + i*100;
+    html += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="160" stroke="#000" stroke-width="1.5"/>';
+    html += '<text x="'+x+'" y="150" font-size="20" text-anchor="middle" font-family="Courier New,monospace">'+labels[i-1]+"</text>";
+  }
+  // 5-yard minor ticks
+  for(var j=1;j<20;j+=2){
+    var x2 = 100 + j*50;
+    html += '<line x1="'+x2+'" y1="0" x2="'+x2+'" y2="14" stroke="#000" stroke-width="1"/><line x1="'+x2+'" y1="146" x2="'+x2+'" y2="160" stroke="#000" stroke-width="1"/>';
+  }
+  g.innerHTML = html;
+})();
+
+// yardsToEndzone: yards from AWAY endzone (0..100), left edge of playing field = away goal line
+// field playing area viewBox x: 100..1100 (1000 units = 100 yards)
+function fieldPct(yardsFromAwayGoal){
+  var x = 100 + (yardsFromAwayGoal*10); // viewBox units
+  return (x/1200*100);
+}
+
+// compute absolute yards-from-away-goal from possessionText like "SEA 32"
+function yardLineAbs(situation, homeAbbr, awayAbbr){
+  // Prefer situation.possession + yardLine if present via text parsing
+  var txt = situation.possessionText || (situation.downDistanceText||"").split(" at ")[1] || "";
+  var m = txt.match(/([A-Z]{2,4})\s+(\d+)/);
+  if(m){
+    var side = m[1], yl = parseInt(m[2],10);
+    if(side===awayAbbr) return yl;          // on away side: yl yards from away goal
+    if(side===homeAbbr) return 100-yl;      // on home side
+  }
+  if(txt.trim()==="50" || /\b50\b/.test(txt)) return 50;
+  if(typeof situation.yardLine==="number") return situation.yardLine;
+  return null;
+}
+
+function renderField(state){
+  var ball = document.getElementById("ballmarker");
+  var name = document.getElementById("ballname");
+  var los = document.getElementById("losline");
+  var fd = document.getElementById("fdline");
+  if(state.ballYards==null){ ball.style.display="none"; name.textContent=""; fd.setAttribute("opacity","0"); return; }
+  ball.style.display="block";
+  var pct = fieldPct(state.ballYards);
+  ball.style.left = pct+"%";
+  name.style.left = pct+"%";
+  name.textContent = state.ballPlayer||"";
+  var vx = 100 + state.ballYards*10;
+  los.setAttribute("x1",vx); los.setAttribute("x2",vx);
+  if(state.fdYards!=null){
+    var fx = 100 + state.fdYards*10;
+    fd.setAttribute("x1",fx); fd.setAttribute("x2",fx);
+    fd.setAttribute("opacity","1");
+  } else fd.setAttribute("opacity","0");
+}
+
+// ---------- play clock ----------
+function resetPlayClock(seconds){
+  playClock = seconds; clockRunning = true; renderClock();
+}
+function renderClock(){
+  var el = document.getElementById("playclock");
+  el.textContent = ":"+pad2(Math.max(0,playClock));
+  el.className = playClock<10 ? "low" : "";
+}
+setInterval(function(){ if(clockRunning && playClock>0){ playClock--; renderClock(); } },1000);
+
+// ---------- game pick ----------
+function pickEvent(events){
+  var fav = events.filter(function(e){
+    return e.competitions[0].competitors.some(function(c){ return c.team.abbreviation===FAV; });
+  });
+  if(fav.length){
+    var favLive = fav.filter(function(e){ return e.status.type.state==="in"; });
+    return (favLive[0]||fav[0]);
+  }
+  var live = events.filter(function(e){ return e.status.type.state==="in"; });
+  if(live.length) return live[0];
+  return events[0]||null;
+}
+
+function comp(e){ return e.competitions[0]; }
+function sideTeam(c, ha){ return c.competitors.filter(function(x){ return x.homeAway===ha; })[0]; }
+
+// ---------- rendering ----------
+function renderAllGames(events){
+  var el = document.getElementById("allgames");
+  el.innerHTML = events.map(function(e){
+    var c = comp(e);
+    var a = sideTeam(c,"away"), h = sideTeam(c,"home");
+    var st = e.status.type.shortDetail||e.status.type.description||"";
+    return "<div>"+a.team.abbreviation+" "+(a.score||"0")+" @ "+h.team.abbreviation+" "+(h.score||"0")+" &nbsp;&nbsp;"+st+"</div>";
+  }).join("");
+}
+
+function renderQTable(c, awayAb, homeAb){
+  var t = document.getElementById("qtable");
+  var a = sideTeam(c,"away"), h = sideTeam(c,"home");
+  var la = a.linescores||[], lh = h.linescores||[];
+  var n = Math.max(4, la.length, lh.length);
+  var html = "<tr><th></th>";
+  for(var i=1;i<=n;i++) html += "<th>"+(i<=4?("Q"+i):"OT")+"</th>";
+  html += "<th>T</th></tr>";
+  [[awayAb,la,a],[homeAb,lh,h]].forEach(function(r){
+    html += "<tr><td><b>"+r[0]+"</b></td>";
+    for(var i=0;i<n;i++){
+      var v = r[1][i] && r[1][i].value!=null ? r[1][i].value : "";
+      html += "<td>"+v+"</td>";
+    }
+    html += "<td><b>"+(r[2].score||"0")+"</b></td></tr>";
+  });
+  t.innerHTML = html;
+}
+
+function renderScoring(summary){
+  var el = document.getElementById("scoring");
+  var sp = summary.scoringPlays||[];
+  el.innerHTML = sp.map(function(p){
+    var per = p.period ? "Q"+p.period.number : "";
+    var clk = p.clock ? p.clock.displayValue : "";
+    return "<div><b>"+(p.team?p.team.abbreviation||"":"")+"</b> "+per+" "+clk+" — "+(p.text||"")+" ("+p.awayScore+"-"+p.homeScore+")</div>";
+  }).join("") || "<div>No scoring yet.</div>";
+}
+
+function statLine(athletes, labels){
+  if(!athletes || !athletes.length) return null;
+  var a = athletes[0];
+  return a.athlete.shortName+": "+a.stats.join(" ");
+}
+
+function renderStats(summary, awayId, homeId, awayAb, homeAb){
+  var box = summary.boxscore;
+  var out = {away:"", home:""};
+  if(box && box.players){
+    box.players.forEach(function(tp){
+      var side = String(tp.team.id)===String(awayId) ? "away" : "home";
+      var lines = [];
+      (tp.statistics||[]).forEach(function(cat){
+        var ath = (cat.athletes||[])[0];
+        if(!ath) return;
+        if(cat.name==="passing") lines.push("QB "+ath.athlete.shortName+" "+pick(cat,ath,["completions/passingAttempts","C/ATT"],0)+" "+pickIdx(cat,ath,"passingYards")+" YD "+pickIdx(cat,ath,"passingTouchdowns")+" TD "+pickIdx(cat,ath,"interceptions")+" INT");
+        if(cat.name==="rushing") lines.push("RB "+ath.athlete.shortName+" "+pickIdx(cat,ath,"rushingAttempts")+" CAR "+pickIdx(cat,ath,"rushingYards")+" YD "+pickIdx(cat,ath,"rushingTouchdowns")+" TD");
+        if(cat.name==="receiving") lines.push("WR "+ath.athlete.shortName+" "+pickIdx(cat,ath,"receptions")+" REC "+pickIdx(cat,ath,"receivingYards")+" YD "+pickIdx(cat,ath,"receivingTouchdowns")+" TD");
+      });
+      out[side] = lines.map(function(l){ return "<div>"+l+"</div>"; }).join("");
+    });
+  }
+  document.getElementById("statsAway").innerHTML = "<b>"+awayAb+"</b>"+(out.away||"<div>—</div>");
+  document.getElementById("statsHome").innerHTML = "<b>"+homeAb+"</b>"+(out.home||"<div>—</div>");
+}
+function pickIdx(cat, ath, key){
+  var i = (cat.keys||[]).indexOf(key);
+  return i>=0 && ath.stats ? ath.stats[i] : "";
+}
+function pick(cat, ath, keys, fallbackIdx){
+  for(var k=0;k<keys.length;k++){
+    var i = (cat.keys||[]).indexOf(keys[k]);
+    if(i>=0 && ath.stats) return ath.stats[i];
+  }
+  return ath.stats ? ath.stats[fallbackIdx] : "";
+}
+
+function updateGame(event, summary){
+  var c = comp(event);
+  var a = sideTeam(c,"away"), h = sideTeam(c,"home");
+  var awayAb = a.team.abbreviation, homeAb = h.team.abbreviation;
+  document.getElementById("hdrteams").textContent = awayAb+" @ "+homeAb;
+  document.getElementById("ezAway").textContent = awayAb;
+  document.getElementById("ezHome").textContent = homeAb;
+
+  var st = {
+    awayScore: parseInt(a.score||"0",10),
+    homeScore: parseInt(h.score||"0",10),
+    period: event.status.period,
+    clock: event.status.displayClock,
+    stateType: event.status.type.state,
+    ballYards: null, fdYards: null, ballPlayer: "", downDist: ""
+  };
+
+  var scoreEl = document.getElementById("hdrscore");
+  if(prev && (prev.awayScore!==st.awayScore || prev.homeScore!==st.homeScore)) flashEl(scoreEl);
+  scoreEl.textContent = st.awayScore+" - "+st.homeScore;
+
+  var qtrEl = document.getElementById("hdrqtr");
+  var qtxt = st.stateType==="pre" ? "PRE" : st.stateType==="post" ? "FINAL" : (st.period<=4?("Q"+st.period):"OT");
+  if(prev && prev.period!==st.period) flashEl(qtrEl);
+  qtrEl.innerHTML = qtxt+'<br><span id="hdrclock" style="font-size:20px;">'+(st.clock||"")+"</span>";
+
+  // situation
+  var sit = c.situation || {};
+  var lastPlayText = "";
+  if(sit.lastPlay && sit.lastPlay.text) lastPlayText = sit.lastPlay.text;
+  st.downDist = sit.downDistanceText || sit.shortDownDistanceText || "";
+  var ddExtra = sit.possessionText ? " · "+sit.possessionText : "";
+  document.getElementById("ddbar").textContent = st.downDist ? (st.downDist.toUpperCase()+ddExtra) : (st.stateType==="in" ? (sit.possessionText||"—") : event.status.type.shortDetail||"—");
+
+  st.ballYards = yardLineAbs(sit, homeAb, awayAb);
+  if(st.ballYards!=null && sit.distance!=null && st.downDist){
+    // first-down line: need direction — team with possession drives toward opposite endzone
+    var possAway = sit.possession && String(sit.possession)===String(a.id);
+    // ESPN: possession is team id; away drives toward home endzone (right) if possession==away id
+    var dir = possAway ? 1 : -1;
+    var fd = st.ballYards + dir*sit.distance;
+    if(fd>0 && fd<100) st.fdYards = fd;
+  }
+  // player name at ball
+  if(sit.lastPlay && sit.lastPlay.athletes && sit.lastPlay.athletes.length){
+    var ath = sit.lastPlay.athletes[0].athlete || sit.lastPlay.athletes[0];
+    st.ballPlayer = (ath.shortName||ath.displayName||"");
+  }
+  renderField(st);
+
+  // play clock: reset when a new play is detected (last play id or text changed)
+  var lp = sit.lastPlay ? (sit.lastPlay.id||lastPlayText) : "";
+  if(st.stateType==="in" && (!prev || prev.lastPlayId!==lp)){
+    var t = lastPlayText.toLowerCase();
+    var short25 = t.indexOf("incomplete")>=0 || t.indexOf("out of bounds")>=0 || t.indexOf("out-of-bounds")>=0;
+    resetPlayClock(short25?25:40);
+  }
+  if(st.stateType!=="in"){ clockRunning=false; document.getElementById("playclock").textContent = event.status.type.shortDetail||qtxt; }
+  st.lastPlayId = lp;
+
+  document.getElementById("lastplay").textContent = lastPlayText || (summary && summary.drives && summary.drives.current && summary.drives.current.plays && summary.drives.current.plays.length ? summary.drives.current.plays[summary.drives.current.plays.length-1].text : "") || "No plays yet.";
+
+  renderQTable(c, awayAb, homeAb);
+  if(summary){
+    renderScoring(summary);
+    renderStats(summary, a.id, h.id, awayAb, homeAb);
+  }
+  // word game auto-trigger on break in play
+  if(window.WG) window.WG.onGameState(st.stateType, st.period, prev);
+  prev = st;
+}
+
+// ---------- polling ----------
+function schedulePoll(ms){
+  if(pollTimer) clearTimeout(pollTimer);
+  currentInterval = ms;
+  pollTimer = setTimeout(poll, ms);
+}
+
+function poll(){
+  fetch(SB_URL).then(function(r){ return r.json(); }).then(function(sb){
+    var events = sb.events||[];
+    renderAllGames(events);
+    var ev = pickEvent(events);
+    if(!ev){ setErr("no games found"); schedulePoll(300000); return; }
+    eventId = ev.id;
+    var state = ev.status.type.state;
+    return fetch(sumUrl(eventId)).then(function(r){ return r.json(); }).then(function(summary){
+      updateGame(ev, summary);
+      setErr("");
+      schedulePoll(state==="in" ? 5000 : state==="pre" ? 60000 : 300000);
+    }).catch(function(){
+      // summary failed; still update from scoreboard
+      updateGame(ev, null);
+      setErr("summary fetch error");
+      schedulePoll(state==="in" ? 5000 : 60000);
+    });
+  }).catch(function(){
+    setErr("fetch error — retrying");
+    schedulePoll(Math.min(currentInterval||30000, 30000));
+  });
+}
+
+poll();
+})();
+
+// ================= WORD GAME OVERLAY =================
+(function(){
+"use strict";
+var WORDS = [
+  ["TOUCHDOWN","Score 6 points in football"],
+  ["QUARTERBACK","The signal caller"],
+  ["FOOTBALL","The ball itself"],
+  ["REFEREE","Calls the penalties"],
+  ["HALFTIME","Middle of the game"],
+  ["STADIUM","Where teams play"],
+  ["POPCORN","Game day snack"],
+  ["FUMBLE","Oops, dropped the ball"],
+  ["HELMET","Protects a player's head"],
+  ["KICKOFF","How each half starts"],
+  ["PENALTY","Yellow flag on the play"],
+  ["HUDDLE","Team circle before a play"],
+  ["TAILGATE","Parking lot party before the game"],
+  ["SEAHAWKS","Seattle's NFL team"],
+  ["CHICAGO","Windy City NFL team's home"],
+  ["ARIZONA","Desert state with an NFL team"],
+  ["GREENBAY","Cheesehead football town"],
+  ["DENVER","Mile High City"],
+  ["ELEPHANT","Largest land animal"],
+  ["GIRAFFE","Tallest animal on Earth"],
+  ["PENGUIN","Tuxedo bird that can't fly"],
+  ["DOLPHIN","Smart ocean mammal (and a team!)"],
+  ["CHEETAH","Fastest land animal"],
+  ["OCTOPUS","Eight arms in the ocean"],
+  ["VOLCANO","Mountain that erupts"],
+  ["GLACIER","Giant slow river of ice"],
+  ["RAINIER","Big mountain near Seattle"],
+  ["CANYON","Deep valley carved by a river"],
+  ["PRETZEL","Twisted salty snack"],
+  ["NACHOS","Chips with cheese on top"],
+  ["HOTDOG","Classic stadium food in a bun"],
+  ["PANCAKE","Flat breakfast with syrup"],
+  ["BURRITO","Everything wrapped in a tortilla"],
+  ["THUNDER","The sound after lightning"]
+];
+var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+var overlay = document.getElementById("wgoverlay");
+var word="", clue="", guessed={}, misses=0, over=false, won=false;
+var dismissedThisBreak=false, autoTimer=null, lastState=null;
+
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+function newGame(){
+  var w = WORDS[Math.floor(Math.random()*WORDS.length)];
+  word=w[0]; clue=w[1]; guessed={}; misses=0; over=false; won=false;
+  // build key set: unique correct letters + wrong letters to reach at least 10 (or uniques+6)
+  var uniq=[]; for(var i=0;i<word.length;i++) if(uniq.indexOf(word[i])<0) uniq.push(word[i]);
+  var keys=uniq.slice();
+  var pool=shuffle(ALPHA.split("").filter(function(c){ return uniq.indexOf(c)<0; }));
+  var target=Math.max(10, uniq.length+6);
+  while(keys.length<target && pool.length) keys.push(pool.pop());
+  keys=shuffle(keys);
+  renderKeys(keys);
+  render();
+}
+function renderKeys(keys){
+  document.getElementById("wgletters").innerHTML = keys.map(function(k){
+    return '<button class="wgkey" data-l="'+k+'">'+k+'</button>';
+  }).join("");
+}
+function render(){
+  document.getElementById("wgclue").textContent = "CLUE: "+clue;
+  document.getElementById("wgmisses").textContent = "MISSES: "+misses+"/6";
+  var blanks="";
+  for(var i=0;i<word.length;i++){
+    var c=word[i];
+    blanks += (guessed[c]||over ? c : "_") + " ";
+  }
+  document.getElementById("wgblanks").textContent = blanks.trim();
+  var res = document.getElementById("wgresult");
+  if(over){
+    res.style.display="block";
+    res.innerHTML = (won ? "YOU GOT IT!" : "OUT OF GUESSES!<br>THE WORD WAS: "+word) + "<br><br>TAP TO PLAY AGAIN";
+  } else res.style.display="none";
+}
+function solved(){
+  for(var i=0;i<word.length;i++) if(!guessed[word[i]]) return false;
+  return true;
+}
+function onKey(btn){
+  if(over) return;
+  var l=btn.getAttribute("data-l");
+  if(btn.classList.contains("hit")||btn.classList.contains("miss")) return;
+  if(word.indexOf(l)>=0){
+    guessed[l]=true; btn.classList.add("hit");
+    if(solved()){ over=true; won=true; }
+  } else {
+    btn.classList.add("miss"); misses++;
+    if(misses>=6){ over=true; won=false; }
+  }
+  render();
+}
+function openGame(){
+  if(overlay.classList.contains("open")) return;
+  newGame();
+  overlay.classList.add("open");
+}
+function closeGame(userDismissed){
+  overlay.classList.remove("open");
+  if(userDismissed) dismissedThisBreak=true;
+}
+
+document.getElementById("wgbtn").addEventListener("click", openGame);
+document.getElementById("wgreturn").addEventListener("click", function(){ closeGame(true); });
+overlay.addEventListener("click", function(e){
+  var t=e.target;
+  if(t.classList && t.classList.contains("wgkey")){ onKey(t); return; }
+  if(t.id==="wgresult" || (over && t.id!=="wgreturn")){ if(over){ newGame(); return; } }
+  // tap on overlay background (not clue/blanks/keys) dismisses
+  if(t===overlay) closeGame(true);
+});
+
+// hook called from updateGame
+window.WG = {
+  onGameState: function(stateType, period, prevState){
+    var breakNow = stateType!=="in";
+    var wasIn = lastState==="in";
+    if(stateType==="in" && lastState!=="in"){
+      // back in play: reset dismissal, close if open
+      dismissedThisBreak=false;
+      if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; }
+    }
+    if(breakNow && wasIn && !dismissedThisBreak && !overlay.classList.contains("open") && !autoTimer){
+      autoTimer=setTimeout(function(){
+        autoTimer=null;
+        if(!dismissedThisBreak && !overlay.classList.contains("open")) openGame();
+      },10000);
+    }
+    lastState=stateType;
+  }
+};
+})();
+</script>
+</body>
+</html>
