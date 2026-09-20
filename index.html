@@ -125,6 +125,7 @@ function sumUrl(id){ return "https://site.api.espn.com/apis/site/v2/sports/footb
 
 var prev = null;
 var eventId = null;
+var userPicked = false;
 var pollTimer = null;
 var playClock = 40;
 var clockRunning = false;
@@ -374,7 +375,7 @@ function renderAllGames(events){
     div.addEventListener("click", function(){
       var eid = div.getAttribute("data-eid");
       document.getElementById("ugoverlay").classList.remove("open");
-      if(eid && eid!==eventId){ eventId=eid; prev=null; fieldPlayers={away:[],home:[]}; if(pollTimer) clearTimeout(pollTimer); poll(); }
+      if(eid){ userPicked=true; eventId=eid; prev=null; fieldPlayers={away:[],home:[]}; if(pollTimer) clearTimeout(pollTimer); poll(); }
     });
   });
 }
@@ -558,7 +559,11 @@ function poll(){
   fetch(SB_URL).then(function(r){ return r.json(); }).then(function(sb){
     var events = sb.events||[];
     renderAllGames(events);
-    var ev = pickEvent(events);
+    var ev = null;
+    if(userPicked && eventId){
+      ev = events.filter(function(e){ return e.id===eventId; })[0];
+    }
+    if(!ev){ ev = pickEvent(events); }
     if(!ev){ setErr("no games found"); schedulePoll(300000); return; }
     eventId = ev.id;
     var state = ev.status.type.state;
