@@ -212,8 +212,16 @@ function renderAllGames(events){
     var c = comp(e);
     var a = sideTeam(c,"away"), h = sideTeam(c,"home");
     var st = e.status.type.shortDetail||e.status.type.description||"";
-    return "<div>"+a.team.abbreviation+" "+(a.score||"0")+" @ "+h.team.abbreviation+" "+(h.score||"0")+" &nbsp;&nbsp;"+st+"</div>";
+    var active = e.id===eventId ? " style='background:#000;color:#fff;font-weight:bold;'" : " style='cursor:pointer;'";
+    return "<div"+active+" data-eid='"+e.id+"'>"+a.team.abbreviation+" "+(a.score||"0")+" @ "+h.team.abbreviation+" "+(h.score||"0")+" &nbsp;&nbsp;"+st+"</div>";
   }).join("");
+  // tap to switch game
+  el.querySelectorAll("div[data-eid]").forEach(function(div){
+    div.addEventListener("click", function(){
+      var eid = div.getAttribute("data-eid");
+      if(eid && eid!==eventId){ eventId=eid; prev=null; if(pollTimer) clearTimeout(pollTimer); poll(); }
+    });
+  });
 }
 
 function renderQTable(c, awayAb, homeAb){
